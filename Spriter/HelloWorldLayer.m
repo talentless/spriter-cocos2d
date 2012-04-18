@@ -50,7 +50,9 @@
         
         [self addChild:n];
         
-        n = [TGSpriterNode spriterNodeWithFiles:@"BetaFormatHero.SCML"];
+        [[CCSpriteFrameCache sharedSpriteFrameCache] addSpriteFramesWithFile:@"hero.plist"];
+        
+        n = [TGSpriterNode spriterNodeWithFiles:@"BetaFormatHero.SCML" spriteSheet:@"hero.png"];
         n.position = ccp(360,100);
         //[n showFrame:@"idle_healthy_0"];
         

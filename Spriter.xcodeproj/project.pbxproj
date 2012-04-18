@@ -183,6 +183,10 @@
 		B75AF15F153E07DC002210F5 /* shoulder_b.png in Resources */ = {isa = PBXBuildFile; fileRef = B75AF129153E07DC002210F5 /* shoulder_b.png */; };
 		B75AF163153E0825002210F5 /* sword_0.png in Resources */ = {isa = PBXBuildFile; fileRef = B75AF162153E0825002210F5 /* sword_0.png */; };
 		B75AF166153E08C0002210F5 /* TGSpriterNode.m in Sources */ = {isa = PBXBuildFile; fileRef = B75AF165153E08C0002210F5 /* TGSpriterNode.m */; };
+		B7D6EE1C153EFB4F007B4940 /* hero-hd.plist in Resources */ = {isa = PBXBuildFile; fileRef = B7D6EE18153EFB4F007B4940 /* hero-hd.plist */; };
+		B7D6EE1D153EFB4F007B4940 /* hero-hd.png in Resources */ = {isa = PBXBuildFile; fileRef = B7D6EE19153EFB4F007B4940 /* hero-hd.png */; };
+		B7D6EE1E153EFB4F007B4940 /* hero.plist in Resources */ = {isa = PBXBuildFile; fileRef = B7D6EE1A153EFB4F007B4940 /* hero.plist */; };
+		B7D6EE1F153EFB4F007B4940 /* hero.png in Resources */ = {isa = PBXBuildFile; fileRef = B7D6EE1B153EFB4F007B4940 /* hero.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -497,6 +501,10 @@
 		B75AF162153E0825002210F5 /* sword_0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = sword_0.png; sourceTree = "<group>"; };
 		B75AF164153E08C0002210F5 /* TGSpriterNode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TGSpriterNode.h; sourceTree = "<group>"; };
 		B75AF165153E08C0002210F5 /* TGSpriterNode.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TGSpriterNode.m; sourceTree = "<group>"; };
+		B7D6EE18153EFB4F007B4940 /* hero-hd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "hero-hd.plist"; sourceTree = "<group>"; };
+		B7D6EE19153EFB4F007B4940 /* hero-hd.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "hero-hd.png"; sourceTree = "<group>"; };
+		B7D6EE1A153EFB4F007B4940 /* hero.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = hero.plist; sourceTree = "<group>"; };
+		B7D6EE1B153EFB4F007B4940 /* hero.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = hero.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -572,6 +580,10 @@
 			isa = PBXGroup;
 			children = (
 				B75AF0EE153E07DC002210F5 /* BetaFormatHero.SCML */,
+				B7D6EE18153EFB4F007B4940 /* hero-hd.plist */,
+				B7D6EE19153EFB4F007B4940 /* hero-hd.png */,
+				B7D6EE1A153EFB4F007B4940 /* hero.plist */,
+				B7D6EE1B153EFB4F007B4940 /* hero.png */,
 				B75AF0EF153E07DC002210F5 /* p1_arms_0 */,
 				B75AF0F2153E07DC002210F5 /* p1_boots_0 */,
 				B75AF0FC153E07DC002210F5 /* p1_chest_0 */,
@@ -1167,6 +1179,10 @@
 				B75AF15E153E07DC002210F5 /* shoulder_a.png in Resources */,
 				B75AF15F153E07DC002210F5 /* shoulder_b.png in Resources */,
 				B75AF163153E0825002210F5 /* sword_0.png in Resources */,
+				B7D6EE1C153EFB4F007B4940 /* hero-hd.plist in Resources */,
+				B7D6EE1D153EFB4F007B4940 /* hero-hd.png in Resources */,
+				B7D6EE1E153EFB4F007B4940 /* hero.plist in Resources */,
+				B7D6EE1F153EFB4F007B4940 /* hero.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1382,6 +1398,7 @@
 				B75AF0ED153E07A6002210F5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

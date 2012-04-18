@@ -25,20 +25,48 @@
 
 @end
 
-@interface TGSpriterNode : CCNode <NSXMLParserDelegate> {
-    NSXMLParser * parser_;
-    
-    NSString * characterName_;
-    NSMutableDictionary * animations_; // {name: [(name,duration),(name,duration),...],...}
-   // NSMutableDictionary * frames_; // {name: [(image, color, opacity, angle, xflip,yflip,width,height, x,y),..],..}
-    
-    NSString * animation_;
+// holds the sprites associated with a given frame
+@interface TGSpriterFrame : NSObject {
+    NSMutableArray * sprites_;
+}
+
++(id) spriterFrame;
+-(void) addSprite:(CCSprite*)sprite;
+-(void) setVisible:(BOOL)visible;
+
+@end
+
+// holds the frames for a given animation
+@interface TGSpriterAnimation : NSObject {
     NSMutableArray * frames_;
     NSMutableArray * frameDurations_;
     int frameIdx_;
     double frameDuration_;
+}
+
++(id) spriterAnimation;
+-(void) addFrame:(TGSpriterFrame*)frame duration:(double)duration;
+-(void)update:(ccTime)dt;
+
+@end
+
+@interface TGSpriterNode : CCNode <NSXMLParserDelegate> {
+    NSXMLParser * parser_;
+    
+    NSString * characterName_;
+    NSMutableDictionary * animations_; // {name: TGSpriterAnimation,...}
+    NSMutableDictionary * frames_; // {name: TGSpriterFrame,..}
+    
+    TGSpriterAnimation * curAnimation_;
+    
+    //NSMutableArray * frames_;
+    //NSMutableArray * frameDurations_;
+    //int frameIdx_;
+    //double frameDuration_;
     
     // batch node use?
+    CCSpriteBatchNode * batchNode_;
+    BOOL useBatchNode_;
     
     // SAX vars
     TGSpriterConfigNode * configRoot_;
@@ -47,7 +75,11 @@
 }
 
 +(id) spriterNodeWithFiles:(NSString*)scmlFile;
++(id) spriterNodeWithFiles:(NSString *)scmlFile spriteSheet:(NSString*)spriteSheet;
 -(id) initNodeWithFiles:(NSString*)scmlFile;
+-(id) initNodeWithFiles:(NSString*)scmlFile spriteSheet:(NSString*)spriteSheet;
+
+-(void) runAnimation:(NSString*)animation;
 
 /*
  spriterdata
