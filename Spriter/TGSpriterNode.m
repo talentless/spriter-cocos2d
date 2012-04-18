@@ -79,6 +79,9 @@
     [frameDurations_ addObject:[NSNumber numberWithDouble:duration]];
     frameIdx_ = [frames_ count] - 1;
 }
+-(void) hide {
+    [[frames_ objectAtIndex:frameIdx_] setVisible:FALSE];
+}
 -(void)update:(ccTime)dt {
     frameDuration_ += dt;
     
@@ -163,6 +166,9 @@
 -(void) runAnimation:(NSString*)animation {
     [self unschedule:@selector(update:)];
     
+    if (curAnimation_)
+        [curAnimation_ hide];
+        
     curAnimation_ = [animations_ objectForKey:animation];
     
     [self schedule:@selector(update:)];
@@ -170,16 +176,6 @@
 
 -(void) update:(ccTime)dt {
     [curAnimation_ update:dt];
-}
-
--(void) showFrame:(NSString*)frame {
-    if (useBatchNode_) {
-        [batchNode_ removeAllChildrenWithCleanup:YES];
-    } else {
-        [self removeAllChildrenWithCleanup:YES]; // this is hugely inefficient
-    }
-    
-    
 }
 
 #pragma mark NSXMLParserDelegate
@@ -190,8 +186,6 @@
 }
 
 -(void)parserDidEndDocument:(NSXMLParser *)parser {
-    CCLOG(@"finished parsing: %d", totalNodes_);
-    
     // load all frames
     for (TGSpriterConfigNode * c in [[configRoot_.children objectAtIndex:0] children]) {
         if (![[c name] isEqualToString:@"frame"])
@@ -260,7 +254,7 @@
                 }
                 [spriterFrame addSprite:sprite];
             }
-        }//CCLOG(@"adding a frame: %@", frames_);
+        }
         [frames_ setObject:spriterFrame forKey:spriterFrameName];
     }
     
@@ -271,7 +265,7 @@
         
         for (TGSpriterConfigNode * charNodes in c.children) {
             if ([charNodes.name isEqualToString:@"name"]) {
-                CCLOG(@"Character Name: %@", charNodes.value);
+                //CCLOG(@"Character Name: %@", charNodes.value);
                 continue;
             } else if ([charNodes.name isEqualToString:@"anim"]) {
                 TGSpriterAnimation * animation = [TGSpriterAnimation spriterAnimation];
@@ -286,7 +280,7 @@
                             if ([frameProp.name isEqualToString:@"name"]) {
                                 frameName = frameProp.value;
                             } else if ([frameProp.name isEqualToString:@"duration"]) {
-                                frameDuration = [frameProp.value doubleValue]/100.0;// milliseconds?? should be 1000
+                                frameDuration = [frameProp.value doubleValue]/1000.0;// milliseconds?? should be 1000
                             }
                         }
                         [animation addFrame:[frames_ objectForKey:frameName] duration:frameDuration];
@@ -305,14 +299,10 @@
 }
 
 -(void)parser:(NSXMLParser *)parser didStartElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName attributes:(NSDictionary *)attributeDict {
-    //CCLOG(@"Element Start: %@", elementName);
-    
     TGSpriterConfigNode * newNode = [TGSpriterConfigNode configNode:elementName];
     newNode.parent = curConfigNode_;
     [curConfigNode_.children addObject:newNode];
     curConfigNode_ = newNode;
-    
-    totalNodes_++;
 }
 
 -(void) parser:(NSXMLParser *)parser didEndElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName {

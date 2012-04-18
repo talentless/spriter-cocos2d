@@ -6,6 +6,32 @@
 //  Copyright 2012 Taco Graveyard. All rights reserved.
 //
 
+/*
+ Notes:
+
+ 1.) WARNING
+ 
+ This is a fast and dirty implementation based on the spec for the BETA version. The spec
+ WILL change with the development of Spriter 1.0 and this code will change with it. This
+ code should be considered high unstable until the release of 1.0.
+ 
+ 2.) NSXMLParser
+ 
+ The NSXMLParser is used to avoid introducing addition project dependencies. NSXMLParser
+ is slow and I would rather use a DOM parser than a SAX parser, but I felt like introducing
+ was additional dependcies was important to avoid. If this ends up in cocos2d proper and
+ they wish to use a faster parser, then a lot of the parsing code included can be cleaned up.
+ 
+ This isn't the cleanest parsing implementation. I building up a simple tree as the
+ SAX parser runs its course, and then I use that tree to build up animations and frames.
+ 
+ 3.) Tweening
+ 
+ Tweening isn't in the beta spec.
+ 
+ 
+*/
+
 #import <Foundation/Foundation.h>
 #import "cocos2d.h"
 
@@ -46,6 +72,7 @@
 
 +(id) spriterAnimation;
 -(void) addFrame:(TGSpriterFrame*)frame duration:(double)duration;
+-(void) hide;
 -(void)update:(ccTime)dt;
 
 @end
@@ -59,19 +86,13 @@
     
     TGSpriterAnimation * curAnimation_;
     
-    //NSMutableArray * frames_;
-    //NSMutableArray * frameDurations_;
-    //int frameIdx_;
-    //double frameDuration_;
-    
-    // batch node use?
+    // batch node use
     CCSpriteBatchNode * batchNode_;
     BOOL useBatchNode_;
     
-    // SAX vars
+    // parsing vars
     TGSpriterConfigNode * configRoot_;
     TGSpriterConfigNode * curConfigNode_;
-    int totalNodes_;
 }
 
 +(id) spriterNodeWithFiles:(NSString*)scmlFile;
@@ -79,30 +100,7 @@
 -(id) initNodeWithFiles:(NSString*)scmlFile;
 -(id) initNodeWithFiles:(NSString*)scmlFile spriteSheet:(NSString*)spriteSheet;
 
+// call this to run an animation
 -(void) runAnimation:(NSString*)animation;
-
-/*
- spriterdata
-    char - character. In the beta there will always be only one Character per file
-        name - character's name
-        anim - Animation. There can be any number of <anim>'s per <char>
-            name - The name of the animation.
-            frame - Keyframe. There can be any number of <frame>'s per <anim>
-                name - These will correspond the <frame>'s listed after the <char>'s.
-                duration - How long to keep the frame on screen (in ms).
-    frame - There can be any number of <frame>'s per file.
-        name - <name> of the <frame>, referred to by the keyframes above.
-        sprite - Each <frame> can have any number of <sprite>'s.
-            image - refers to the path and filename of the imagefile to draw
-            color - in RGB integer form (16777215 is white)
-            opacity - from 0 – 100 with 5 digits of precision
-            angle - in degrees counterclockwise ( = 0; = 45)
-            xflip - multiply width by -1
-            yflip - multiply height by -1
-            width - width to display sprite, in pixels
-            height - height to display sprite, in pixels
-            x - x position to display sprite (relative to character's position)
-            y - y position to display sprite (relative to character's position)
- */
 
 @end
