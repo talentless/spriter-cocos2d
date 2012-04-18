@@ -280,7 +280,8 @@
                             if ([frameProp.name isEqualToString:@"name"]) {
                                 frameName = frameProp.value;
                             } else if ([frameProp.name isEqualToString:@"duration"]) {
-                                frameDuration = [frameProp.value doubleValue]/1000.0;// milliseconds?? should be 1000
+                                // the spec stats milliseconds, but this doesn't match the reference implementation.
+                                frameDuration = [frameProp.value doubleValue]/100.0;// milliseconds?? should be 1000
                             }
                         }
                         [animation addFrame:[frames_ objectForKey:frameName] duration:frameDuration];
