@@ -42,21 +42,13 @@
 	// always call "super" init
 	// Apple recommends to re-assign "self" with the "super's" return value
 	if( (self=[super init])) {
-        TGSpriterNode * n = [TGSpriterNode spriterNodeWithFiles:@"BetaFormatHero.SCML"];
-        n.position = ccp(120,100);
-        //[n showFrame:@"idle_healthy_0"];
         
-        [n runAnimation:@"idle_healthy"];
+        [[CCSpriteFrameCache sharedSpriteFrameCache] addSpriteFramesWithFile:@"monster.plist"];
         
-        [self addChild:n];
-        
-        [[CCSpriteFrameCache sharedSpriteFrameCache] addSpriteFramesWithFile:@"hero.plist"];
-        
-        n = [TGSpriterNode spriterNodeWithFiles:@"BetaFormatHero.SCML" spriteSheet:@"hero.png"];
-        n.position = ccp(360,100);
-        //[n showFrame:@"idle_healthy_0"];
-        
-        [n runAnimation:@"walk"];
+        TGSpriterNode * n = [TGSpriterNode spriterNodeWithFiles:@"monster.SCML" spriteSheet:@"monster.png"];
+        n.position = ccp(200,20);
+        n.scale = 0.75;
+        [n runAnimation:@"Idle"];
         
         [self addChild:n];
 	}

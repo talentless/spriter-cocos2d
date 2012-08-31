@@ -40,42 +40,102 @@
     TGSpriterConfigNode * parent_;
     NSMutableArray * children_;
     NSString * value_;
+    NSMutableDictionary * properties_;
 }
 
 @property (nonatomic, retain) NSString * name;
 @property (nonatomic, retain) TGSpriterConfigNode * parent;
 @property (nonatomic, retain) NSMutableArray * children;
 @property (nonatomic, retain) NSString * value;
+@property (nonatomic, retain) NSMutableDictionary * properties;
 
 +(id) configNode:(NSString*)name;
 
 @end
 
-// holds the sprites associated with a given frame
-@interface TGSpriterFrame : NSObject {
-    NSMutableArray * sprites_;
+#pragma mark -
+
+@interface TGSpriterObjectRef : NSObject {
+    int timelineId_;
+    int timelineKey_;
 }
 
+@property int timelineId;
+@property int timelineKey;
+
++(id) spriterObjectRef;
+
+@end
+
+@interface TGSpriterMainlineKey : NSObject {
+    NSMutableArray * objectRefs_;
+    double startsAt_;
+}
+
+@property (nonatomic, readonly) NSMutableArray * objectRefs;
+@property double startsAt;
+
 +(id) spriterFrame;
--(void) addSprite:(CCSprite*)sprite;
--(void) setVisible:(BOOL)visible;
+-(void) addObjectRef:(TGSpriterObjectRef*)sprite;
+
+@end
+
+@interface TGSpriterTimelineKey : NSObject {
+    int file_;
+    int folder_;
+    
+    double startsAt_;
+    
+    CGPoint position_;
+    CGPoint anchorPoint_;
+    double rotation_;
+    int spin_;
+}
+
+@property int file;
+@property int folder;
+@property double startsAt;
+@property CGPoint position;
+@property CGPoint anchorPoint;
+@property double rotation;
+@property int spin;
+
++(id) spriterTimelineKey;
+
+@end
+
+@interface TGSpriterTimeline : NSObject {
+    NSMutableArray * keys_;
+}
+@property (nonatomic, readonly) NSMutableArray * keys;
++(id) spriterTimeline;
+-(void) addKeyFrame:(TGSpriterTimelineKey*)frame;
 
 @end
 
 // holds the frames for a given animation
 @interface TGSpriterAnimation : NSObject {
-    NSMutableArray * frames_;
-    NSMutableArray * frameDurations_;
-    int frameIdx_;
-    double frameDuration_;
+    NSString * name_;
+    
+    NSMutableArray * mainline_;
+    NSMutableArray * timelines_;
+    double duration_;
+    
+    int nodes_;
 }
 
+@property (nonatomic, readonly) NSMutableArray * mainline;
+@property (nonatomic, readonly) NSMutableArray * timelines;
+
+@property (nonatomic, retain) NSString * name;
+@property double duration;
+
 +(id) spriterAnimation;
--(void) addFrame:(TGSpriterFrame*)frame duration:(double)duration;
--(void) hide;
--(void)update:(ccTime)dt;
+-(void) addKeyFrame:(TGSpriterMainlineKey*)frame;
+-(void) addTimeline:(TGSpriterTimeline*)timeline;
 
 @end
+
 
 @interface TGSpriterNode : CCNode <NSXMLParserDelegate> {
     NSXMLParser * parser_;
@@ -84,7 +144,15 @@
     NSMutableDictionary * animations_; // {name: TGSpriterAnimation,...}
     NSMutableDictionary * frames_; // {name: TGSpriterFrame,..}
     
+    NSMutableDictionary * files_;
+    
     TGSpriterAnimation * curAnimation_;
+    TGSpriterMainlineKey * curKeyFrame_;
+    TGSpriterMainlineKey * nextKeyFrame_;
+    double duration_;
+    int frameIdx_;
+    
+    NSMutableArray * spriterNodes_;
     
     // batch node use
     CCSpriteBatchNode * batchNode_;
