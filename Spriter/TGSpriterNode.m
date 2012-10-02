@@ -30,7 +30,7 @@
 
 @implementation TGSpriterObjectRef
 
-@synthesize timelineId=timelineId_, timelineKey=timelineKey;
+@synthesize timelineId=timelineId_, timelineKey=timelineKey_;
 
 +(id) spriterObjectRef {
     return [[super alloc] init];
@@ -96,7 +96,7 @@
 
 @implementation TGSpriterTimelineKey
 
-@synthesize file=file_, folder=folder_, position=position_, anchorPoint=anchorPoint_, rotation=rotation_, startsAt=startsAt_, spin=spin_;
+@synthesize file=file_, folder=folder_, position=position_, anchorPoint=anchorPoint_, rotation=rotation_, startsAt=startsAt_, spin=spin_, scaleX=scaleX_, scaleY=scaleY_;
 
 +(id)spriterTimelineKey {
     return [[super alloc] init];
@@ -131,40 +131,44 @@
 
 @end
 
+
+@implementation TGSpriterSprite
+
+@synthesize folder, file, displayFrameName;
+
+-(void) dealloc {
+    if (displayFrameName) {
+        [displayFrameName release];
+    }
+    
+    [super dealloc];
+}
+
+@end
+
+#pragma mark -
 #pragma mark TGSpriterNode
 
 @implementation TGSpriterNode
 
+@synthesize smoothTransitions, playbackSpeed=playbackSpeed_;
 
-+(id) spriterNodeWithFiles:(NSString*)scmlFile {
-    return [[[super alloc] initNodeWithFiles:scmlFile] autorelease];
++(id) spriterNodeWithFiles:(NSString *)scmlFile spriteSheet:(NSString*)spriteSheet sdScale:(double)sdScale offset:(CGPoint)offset {
+    return [[[super alloc] initNodeWithFiles:scmlFile spriteSheet:spriteSheet sdScale:sdScale offset:offset] autorelease];
 }
-
 +(id) spriterNodeWithFiles:(NSString *)scmlFile spriteSheet:(NSString*)spriteSheet {
-    return [[[super alloc] initNodeWithFiles:scmlFile spriteSheet:spriteSheet] autorelease];
-}
--(id) initNodeWithFiles:(NSString*)scmlFile {
-    return nil; // not implemented 
-    if ( (self = [super init]) ) {
-        frames_ = [[[NSMutableDictionary alloc] init] retain];
-        animations_ = [[[NSMutableDictionary alloc] init] retain];
-        files_ = [[[NSMutableDictionary alloc] init] retain];
-        
-        NSString * path = [[CCFileUtils sharedFileUtils] fullPathFromRelativePath:scmlFile];
-        NSData * scmlData = [NSData dataWithContentsOfFile:path];
-        parser_ = [[[NSXMLParser alloc] initWithData:scmlData] retain];
-        parser_.delegate = self;
-        [parser_ parse];
-    }
-    
-    return self;
+    return [[[super alloc] initNodeWithFiles:scmlFile spriteSheet:spriteSheet sdScale:0.5 offset:ccp(0,0)] autorelease];
 }
 
--(id) initNodeWithFiles:(NSString*)scmlFile spriteSheet:(NSString*)spriteSheet {
+-(id) initNodeWithFiles:(NSString*)scmlFile spriteSheet:(NSString*)spriteSheet sdScale:(double)sdScale offset:(CGPoint)offset {
     if ( (self = [super init]) ) {
+        sdScale_ = sdScale; // assumes animation was built with retina assets
+        offset_ = offset;
+        playbackSpeed_ = 1.0;
+        
         frames_ = [[[NSMutableDictionary alloc] init] retain];
         animations_ = [[[NSMutableDictionary alloc] init] retain];
-        files_ = [[[NSMutableDictionary alloc] init] retain];
+        files_ = [[[NSMutableArray alloc] init] retain];
         spriterNodes_ = [[[NSMutableArray alloc] init] retain];
         
         useBatchNode_ = TRUE;
@@ -216,11 +220,20 @@
 -(void) runAnimation:(NSString*)animation {
     [self unschedule:@selector(update:)];
     
+    //CCLOG(@"running animation: %@", animation);
+    
     duration_ = 0;
     frameIdx_ = 0;
+    if (smoothTransitions) {
+        prevAnimation_ = curAnimation_;
+    }
     curAnimation_ = [animations_ objectForKey:animation];
-    curKeyFrame_ = [curAnimation_.mainline objectAtIndex:0];
-    nextKeyFrame_ = [curAnimation_.mainline objectAtIndex:(frameIdx_+1)%[curAnimation_.mainline count]];
+    if (smoothTransitions) {
+        nextKeyFrame_ = [curAnimation_.mainline objectAtIndex:0];
+    } else {
+        curKeyFrame_ = [curAnimation_.mainline objectAtIndex:0];
+        nextKeyFrame_ = [curAnimation_.mainline objectAtIndex:(frameIdx_+1)%[curAnimation_.mainline count]];
+    }
     
     [self schedule:@selector(update:)];
 }
@@ -228,32 +241,56 @@
 -(void) update:(ccTime)dt {
     // increment the time
     duration_ += dt;
-    int milliseconds = duration_ * 10000;
+    int milliseconds = duration_ * 1000 * playbackSpeed_;
     int startTime = curKeyFrame_.startsAt;
     int endTime = nextKeyFrame_.startsAt;
-    if (nextKeyFrame_.startsAt == 0) {
+    BOOL lastFrame = frameIdx_+1 == [curAnimation_.mainline count];
+    if (prevAnimation_) {
+        endTime = MAX(0, prevAnimation_.duration - curKeyFrame_.startsAt);
+    } else if (nextKeyFrame_.startsAt == 0) {
         endTime = curAnimation_.duration;
     }
     // swap the key frames if we passed the duration
     if (milliseconds > endTime) {
-        curKeyFrame_ = nextKeyFrame_;
-        frameIdx_ = (frameIdx_+1)%[curAnimation_.mainline count];
-        nextKeyFrame_ = [curAnimation_.mainline objectAtIndex:(frameIdx_+1)%[curAnimation_.mainline count]];
-        startTime = curKeyFrame_.startsAt;
-        endTime = nextKeyFrame_.startsAt;
-    }
-    if (milliseconds > curAnimation_.duration) {
-        duration_ -= milliseconds * 0.0001;
-        milliseconds -= 10000;
+        if (prevAnimation_) {
+            prevAnimation_ = nil; // transition has occured
+            frameIdx_ = -1;
+            duration_ = dt;
+            milliseconds = duration_ * 1000 * playbackSpeed_;
+        }
+        if (!lastFrame || (lastFrame && [self animationEnded])) {
+            curKeyFrame_ = nextKeyFrame_;
+            frameIdx_ = (frameIdx_+1)%[curAnimation_.mainline count];
+            nextKeyFrame_ = [curAnimation_.mainline objectAtIndex:(frameIdx_+1)%[curAnimation_.mainline count]];
+            startTime = curKeyFrame_.startsAt;
+            endTime = nextKeyFrame_.startsAt;
+            if (nextKeyFrame_.startsAt == 0) {
+                endTime = curAnimation_.duration;
+            }
+            [self animationFrameChanged];
+        } else {
+            return; // early exit
+        }
+        if (milliseconds > curAnimation_.duration && frameIdx_ == 0) {
+            duration_ -= curAnimation_.duration * (0.001/playbackSpeed_);
+            milliseconds -= curAnimation_.duration * playbackSpeed_;
+        }
     }
     
     // hide existing nodes (this is more important later when we have temp objects)
-    for (CCNode * n in spriterNodes_) {
+    for (TGSpriterSprite * n in spriterNodes_) {
         [n setVisible:FALSE];
+        n.folder = -1;
+        n.file = -1;
     }
     
     // interpolation
     double interpolationFactor = ((milliseconds - startTime)/(1.0*(endTime-startTime)));
+    
+    if (interpolationFactor == INFINITY) { interpolationFactor = 0.0; }
+    if (interpolationFactor < 0) { interpolationFactor = 0.0; }
+    if (interpolationFactor > 1) { interpolationFactor = 1.0; }
+    if (interpolationFactor == NAN) { interpolationFactor = 1.0; }
     
     // walk through mainline objects
     for (int keyIdx = 0; keyIdx < [curKeyFrame_.objectRefs count]; keyIdx++) {
@@ -263,32 +300,49 @@
         
         TGSpriterTimeline * objectTimeline = [curAnimation_.timelines objectAtIndex:[curObjectRef timelineId]];
         
-        TGSpriterTimelineKey * curTimelineKey = [objectTimeline.keys objectAtIndex:[curObjectRef timelineKey]];
+        TGSpriterTimelineKey * curTimelineKey;
+        if (smoothTransitions && prevAnimation_) {
+            TGSpriterTimeline * curObjectTimeline = [prevAnimation_.timelines objectAtIndex:[curObjectRef timelineId]];
+            curTimelineKey = [curObjectTimeline.keys objectAtIndex:[curObjectRef timelineKey]];
+        } else {
+            curTimelineKey = [objectTimeline.keys objectAtIndex:[curObjectRef timelineKey]];
+        }
         TGSpriterTimelineKey * nextTimelineKey = [objectTimeline.keys objectAtIndex:[nextObjectRef timelineKey]];
         
         // Get the display frame
-        NSString * displayFrameName = [files_ objectForKey:[NSString stringWithFormat:@"%d-%d", [curTimelineKey folder], [curTimelineKey file]]];
+        NSString * displayFrameName = [[files_ objectAtIndex:[curTimelineKey folder]] objectAtIndex:[curTimelineKey file]];
         
-        CCSprite * sprite;
+        TGSpriterSprite * sprite;
         // set this data to the first available spriterNode, create a new one if this animation has more objects
         if (keyIdx >= [spriterNodes_ count]) {
-            sprite = [CCSprite spriteWithSpriteFrameName:displayFrameName];
+            sprite = [TGSpriterSprite spriteWithSpriteFrameName:displayFrameName];
+            sprite.displayFrameName = displayFrameName;
             [batchNode_ addChild:sprite];
             [spriterNodes_ addObject:sprite];
         } else {
             sprite = [spriterNodes_ objectAtIndex:keyIdx];
-            [sprite setDisplayFrame:[[CCSpriteFrameCache sharedSpriteFrameCache] spriteFrameByName:displayFrameName]];
+            if (![sprite.displayFrameName isEqualToString:displayFrameName]) {
+                sprite.displayFrameName = displayFrameName;
+                [sprite setDisplayFrame:
+                 [[CCSpriteFrameCache sharedSpriteFrameCache] spriteFrameByName:displayFrameName]];
+            }
         }
         sprite.visible = TRUE;
+        sprite.folder = [curTimelineKey folder];
+        sprite.file = [curTimelineKey file];
         
         sprite.position = ccp([self interpolate:curTimelineKey.position.x b:nextTimelineKey.position.x f:interpolationFactor],
                               [self interpolate:curTimelineKey.position.y b:nextTimelineKey.position.y f:interpolationFactor]);
         sprite.anchorPoint = ccp([self interpolate:curTimelineKey.anchorPoint.x b:nextTimelineKey.anchorPoint.x f:interpolationFactor],
-                              [self interpolate:curTimelineKey.anchorPoint.y b:nextTimelineKey.anchorPoint.y f:interpolationFactor]);
+                                 [self interpolate:curTimelineKey.anchorPoint.y b:nextTimelineKey.anchorPoint.y f:interpolationFactor]);
+        sprite.scaleX = [self interpolate:curTimelineKey.scaleX b:nextTimelineKey.scaleX f:interpolationFactor];
+        sprite.scaleY = [self interpolate:curTimelineKey.scaleY b:nextTimelineKey.scaleY f:interpolationFactor];
         
         double nextRotation = nextTimelineKey.rotation;
         double curRotation = curTimelineKey.rotation;
-        if (curTimelineKey.spin == 1 && (nextRotation-curRotation) < 0) {
+        if (fabs(curRotation-nextRotation) <= 0.001) { // There appears to be a spriter bug related to close FP numbers outputting the wrong spin. This solves that.
+            nextRotation = curRotation;
+        } else if (curTimelineKey.spin == 1 && (nextRotation-curRotation) < 0) {
             nextRotation += 360;
         } else if (curTimelineKey.spin == -1 && (nextRotation-curRotation) > 0) {
             nextRotation -= 360;
@@ -298,10 +352,7 @@
 }
 
 -(double) interpolate:(double)a b:(double)b f:(double)f {
-    if (f == INFINITY) { f = 0.0; }
-    if (f < 0) { f = 0.0; }
-    if (f > 1) { f = 1.0; }
-    if (f == NAN) { f = 1.0; }
+    if (a == b) { return a; }
     return a+(b-a)*f;
 }
 
@@ -315,16 +366,15 @@
 -(void)parserDidEndDocument:(NSXMLParser *)parser {
     // load all frames
     for (TGSpriterConfigNode * c in [[configRoot_.children objectAtIndex:0] children]) {
-        CCLOG(@"%@", c.name);
+        //CCLOG(@"%@", c.name);
         
         if ([[c name] isEqualToString:@"folder"]) {
+            NSMutableArray * folder = [[NSMutableArray alloc] init];
             for (TGSpriterConfigNode * file in c.children) {
-                CCLOG(@"%@: %d-%d => %@", c.name, [[c.properties objectForKey:@"id"] intValue], [[file.properties objectForKey:@"id"] intValue], [[file.properties objectForKey:@"name"] lastPathComponent]);
-                
-                NSString * fileKey = [NSString stringWithFormat:@"%d-%d", [[c.properties objectForKey:@"id"] intValue], [[file.properties objectForKey:@"id"] intValue]];
-                [files_ setObject:[[file.properties objectForKey:@"name"] lastPathComponent] forKey:fileKey];
-                
+                //CCLOG(@"%@: %d-%d => %@", c.name, [[c.properties objectForKey:@"id"] intValue], [[file.properties objectForKey:@"id"] intValue], [[file.properties objectForKey:@"name"] lastPathComponent]);
+                [folder addObject:[[file.properties objectForKey:@"name"] lastPathComponent]];
             }
+            [files_ addObject:folder];
         } else if ([[c name] isEqualToString:@"entity"]) {
             // SpriterNode->[TGSpriterAnimation]->[TGSpriterFrame]->[TGSpriteObjectKey]
             for (TGSpriterConfigNode * animation in c.children) {
@@ -334,7 +384,7 @@
                 spriterAnimation.name = [animation.properties objectForKey:@"name"];
                 spriterAnimation.duration = [[animation.properties objectForKey:@"length"] intValue];
                 
-                CCLOG(@"Parsing Animation: %@ (%d ms.)", spriterAnimation.name, (int)spriterAnimation.duration);
+                //CCLOG(@"Parsing Animation: %@ (%d ms.)", spriterAnimation.name, (int)spriterAnimation.duration);
                 
                 for (TGSpriterConfigNode * animConfig in animation.children) {
                     //      mainline
@@ -351,6 +401,7 @@
                                 
                                 [mainlineKey addObjectRef:objectRef];
                             }
+                            mainlineKey.startsAt = [[key.properties objectForKey:@"time"] intValue];
                             [spriterAnimation addKeyFrame:mainlineKey];
                         }
                     } else if ([[animConfig name] isEqualToString:@"timeline"]) {
@@ -364,11 +415,24 @@
                                 timelineKey.folder = [[object.properties objectForKey:@"folder"] intValue];
                                 timelineKey.file = [[object.properties objectForKey:@"file"] intValue];
                                 
-                                timelineKey.position = ccp([[object.properties objectForKey:@"x"] doubleValue],
-                                                           [[object.properties objectForKey:@"y"] doubleValue]);
-                                timelineKey.anchorPoint = ccp([[object.properties objectForKey:@"pivot_x"] doubleValue],
-                                                           [[object.properties objectForKey:@"pivot_y"] doubleValue]);
-                                
+                                timelineKey.position = ccpMult(ccpAdd(ccp([[object.properties objectForKey:@"x"] doubleValue],
+                                                                          [[object.properties objectForKey:@"y"] doubleValue]), offset_), sdScale_);
+                                if ([object.properties objectForKey:@"pivot_x"]) {
+                                    timelineKey.anchorPoint = ccp([[object.properties objectForKey:@"pivot_x"] doubleValue],
+                                                                  [[object.properties objectForKey:@"pivot_y"] doubleValue]);
+                                } else {
+                                    timelineKey.anchorPoint = ccp(0,1);
+                                }
+                                if ([object.properties objectForKey:@"scale_x"]) {
+                                    timelineKey.scaleX = [[object.properties objectForKey:@"scale_x"] doubleValue];
+                                } else {
+                                    timelineKey.scaleX = 1.0;
+                                }
+                                if ([object.properties objectForKey:@"scale_y"]) {
+                                    timelineKey.scaleY = [[object.properties objectForKey:@"scale_y"] doubleValue];
+                                } else {
+                                    timelineKey.scaleY = 1.0;
+                                }
                                 
                                 timelineKey.startsAt = [[key.properties objectForKey:@"time"] intValue];
                                 timelineKey.rotation = [[object.properties objectForKey:@"angle"] doubleValue];
@@ -392,111 +456,6 @@
         
         continue;
     }
-        
-        /*
-        NSString * spriterFrameName = @"";
-        TGSpriterFrame * spriterFrame = [TGSpriterFrame spriterFrame];
-        
-        for (TGSpriterConfigNode * frameNodes in c.children) {
-            if ([frameNodes.name isEqualToString:@"name"]) {
-                spriterFrameName = frameNodes.value;
-            } else if ([frameNodes.name isEqualToString:@"sprite"]) {
-                NSString * img;
-                double x = 0, y = 0, angle=0, width = 0, height = 0;
-                int opacity = 255;
-                BOOL flipX = FALSE, flipY = FALSE;
-                ccColor3B color = ccc3(255, 255, 255);
-                for (TGSpriterConfigNode * spriteProp in frameNodes.children) {
-                    //CCLOG(@"\t%@: %@", spriteProp.name, spriteProp.value);
-                    if ([spriteProp.name isEqualToString:@"image"]) {
-                        img = [[spriteProp.value componentsSeparatedByString:@"\\"] lastObject];
-                    } else if ([spriteProp.name isEqualToString:@"x"]) {
-                        x = [spriteProp.value doubleValue];
-                    } else if ([spriteProp.name isEqualToString:@"y"]) {
-                        y = -[spriteProp.value doubleValue];
-                    } else if ([spriteProp.name isEqualToString:@"angle"]) {
-                        angle = -[spriteProp.value doubleValue];
-                    } else if ([spriteProp.name isEqualToString:@"opacity"]) {
-                        opacity = [spriteProp.value doubleValue] / 100.0 * 255;
-                    } else if ([spriteProp.name isEqualToString:@"flipX"]) {
-                        flipX = [spriteProp.value boolValue];
-                    } else if ([spriteProp.name isEqualToString:@"flipY"]) {
-                        flipY = [spriteProp.value boolValue];
-                    } else if ([spriteProp.name isEqualToString:@"color"]) {
-                        int c = [spriteProp.value intValue];
-                        int red = c / pow(256, 2);
-                        int green = (c - red * pow(256, 2)) / 256;
-                        int blue = c -  red * pow(256, 2) - blue * 256;
-                        color = ccc3(red, green, blue);
-                    } else if ([spriteProp.name isEqualToString:@"width"]) {
-                        width = [spriteProp.value doubleValue];
-                    } else if ([spriteProp.name isEqualToString:@"height"]) {
-                        height = [spriteProp.value doubleValue];
-                    }
-                }
-                CCSprite * sprite;
-                if (useBatchNode_) {
-                    sprite = [CCSprite spriteWithSpriteFrameName:img];
-                } else {
-                    sprite = [CCSprite spriteWithFile:img];
-                }
-                sprite.anchorPoint = ccp(0,1);
-                sprite.position = ccp(x,y);
-                sprite.rotation = angle;
-                sprite.flipX = flipX;
-                sprite.flipY = flipY;
-                sprite.color = color;
-                sprite.scaleX = width / sprite.contentSize.width;
-                sprite.scaleY = height / sprite.contentSize.height;
-                sprite.visible = FALSE;
-                
-                if (useBatchNode_) {
-                    [batchNode_ addChild:sprite];
-                } else {
-                    [self addChild:sprite];
-                }
-                [spriterFrame addSprite:sprite];
-            }
-        }
-        [frames_ setObject:spriterFrame forKey:spriterFrameName];
-    }
-         */
-    
-        /*
-    // load all animations
-    for (TGSpriterConfigNode * c in [[configRoot_.children objectAtIndex:0] children]) {
-        if (![[c name] isEqualToString:@"char"])
-            continue;
-        
-        for (TGSpriterConfigNode * charNodes in c.children) {
-            if ([charNodes.name isEqualToString:@"name"]) {
-                //CCLOG(@"Character Name: %@", charNodes.value);
-                continue;
-            } else if ([charNodes.name isEqualToString:@"anim"]) {
-                TGSpriterAnimation * animation = [TGSpriterAnimation spriterAnimation];
-                NSString * animationName = @"";
-                for (TGSpriterConfigNode * frames in charNodes.children) {
-                    if ([frames.name isEqualToString:@"name"]) { // animation name
-                        animationName = frames.value;
-                    } else if ([frames.name isEqualToString:@"frame"]) {
-                        NSString * frameName = @"";
-                        double frameDuration = 0;
-                        for (TGSpriterConfigNode * frameProp in frames.children) {
-                            if ([frameProp.name isEqualToString:@"name"]) {
-                                frameName = frameProp.value;
-                            } else if ([frameProp.name isEqualToString:@"duration"]) {
-                                // the spec stats milliseconds, but this doesn't match the reference implementation.
-                                frameDuration = [frameProp.value doubleValue]/100.0;// milliseconds?? should be 1000
-                            }
-                        }
-                        [animation addFrame:[frames_ objectForKey:frameName] duration:frameDuration];
-                    }
-                }
-                [animations_ setObject:animation forKey:animationName];
-            }
-        }
-    }
-         */
     
     // clean up
     if (configRoot_) {
@@ -528,5 +487,8 @@
         curConfigNode_.value = [curConfigNode_.value stringByAppendingString:string];
     }
 }
+
+-(BOOL) animationEnded { return TRUE;}
+-(void)animationFrameChanged {}
 
 @end
